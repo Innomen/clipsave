@@ -43,6 +43,18 @@ def save_png(image, path):
     return output.commit()
 
 
+def copy_path(path):
+    """Use a clipboard owner that survives this short-lived GUI process."""
+    command = (['wl-copy', '--type', 'text/plain;charset=utf-8']
+               if os.environ.get('WAYLAND_DISPLAY') else ['xsel', '--clipboard', '--input'])
+    try:
+        result = subprocess.run(command, input=str(Path(path).absolute()).encode('utf-8'),
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def run(app):
     image = clipboard_image(app)
     if image.isNull():
@@ -66,6 +78,9 @@ def run(app):
                 QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
                 continue
         if save_png(image, path):
+            if not copy_path(path):
+                QMessageBox.warning(None, 'ClipSave',
+                                    'The image was saved, but its path could not be copied to the clipboard.')
             return 0
         QMessageBox.warning(None, 'ClipSave',
                             'Could not save the image. Choose a writable location and try again.')
